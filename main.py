@@ -41,6 +41,7 @@ def get_region_idxs(adspower_id: str, adspower_driver: AdspowerDriver):
         if region.get_attribute("idnt") is None:
             continue
         region_idxs.append(int(region.get_attribute("idnt")[7:]))
+    region_idxs.remove(1203)
     return region_idxs
 
 
@@ -68,6 +69,18 @@ def parse_realtors_data(
                     (By.CLASS_NAME, "text-box-info-title")
                 )
             )
+
+            bad_realtors_specializations = [
+                [
+                    j.text
+                    for j in i.find_elements(
+                        By.CLASS_NAME, "gallery-text-box-spec-list"
+                    )
+                ]
+                for i in WebDriverWait(adspower_browser, 5).until(
+                    EC.presence_of_all_elements_located((By.CLASS_NAME, "desc"))
+                )
+            ]
         except TimeoutException:
             print("Риелторы по данному региону закончились")
             current_region_pos += 1
@@ -80,10 +93,8 @@ def parse_realtors_data(
             EC.presence_of_all_elements_located((By.CLASS_NAME, "prop-el"))
         )
 
-        i = 0
         updated = []
         for data in realtors_registration_data:
-            i += 1
             if data.get_attribute("title").startswith("Дата регистрации"):
                 updated.append(data)
                 continue
@@ -95,45 +106,158 @@ def parse_realtors_data(
                 logger.success("Все доступные риелторы собраны")
                 break
 
+        i = -1
         new_realtors_links = []
+        new_realtors_specializations = []
         for data_idx, data in enumerate(updated):
+            i += 1
             if int(data.text[13:17]) >= 2017:
                 new_realtors_links.append(realtors_links[data_idx])
+                new_realtors_specializations.append(bad_realtors_specializations[i])
 
         # Заходим по каждой ссылке и собираем данные по одному конкретному риелтору:
         # 1) Имя
         # 2) Телефон
         # 3) Специализация
         # 4) Регион
-        for link in new_realtors_links:
+        for realtor_idx, link in enumerate(new_realtors_links):
             adspower_browser.get(link)
 
             # Сбор данных со странички
-            source = adspower_browser.page_source
-            # print(source)
-            name = None
+            # Имя
             try:
                 name = WebDriverWait(adspower_browser, 1).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, "info"))
+                    EC.presence_of_element_located((By.TAG_NAME, "h1"))
                 )
-            except:
-                try:
-                    name = WebDriverWait(adspower_browser, 1).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, "realtor__info-name"))
+            except TimeoutException:
+                name = WebDriverWait(adspower_browser, 1).until(
+                    EC.presence_of_element_located(
+                        (By.CLASS_NAME, "realtor__info-name")
                     )
-                except:
-                    try:
-                        name = WebDriverWait(adspower_browser, 1).until(
-                            EC.presence_of_element_located((By.CLASS_NAME, "title"))
-                        )
-                    except:
-                        print("Имя не найдено")
+                )
             print(name.text)
-            phone_number = re.findall(r"\+\d{1,3}[-\s]?\(?\d{1,5}\)?[-\s]?\(?\d{1,5}\)?[-\s]?\d{1,5}[-\s]?\d{1,5}[-\s]?\d{1,5}", source)[0]
-            # phone_number = WebDriverWait(adspower_browser, 1).until(
-            #     EC.presence_of_element_located((By.CLASS_NAME, "phone"))
-            # )
+
+            # Телефон
+            source = adspower_browser.page_source
+            phone_number = re.findall(
+                r"\+\d{1,3}[-\s]?\(?\d{1,5}\)?[-\s]?\(?\d{1,5}\)?[-\s]?\d{1,5}[-\s]?\d{1,5}[-\s]?\d{1,5}",
+                source,
+            )[0]
             print(phone_number)
+
+            # Регион
+            finished = False
+            region = None
+            try:
+                if not finished:
+                    company_contacts = WebDriverWait(adspower_browser, 1).until(
+                        EC.presence_of_all_elements_located(
+                            (By.CLASS_NAME, "company-contacts")
+                        )
+                    )
+                    if len(company_contacts) < 2:
+                        print("u")
+                        raise TimeoutException()
+                    company_contacts = company_contacts[1]
+                    # divs = WebDriverWait(company_contacts, 1).until(
+                    #     EC.presence_of_all_elements_located((By.TAG_NAME, "div"))
+                    # )
+                    divs = company_contacts.find_elements(By.XPATH, ".//*")
+                    print(len(divs))
+                    for div in divs:
+                        print("1", div.text)
+                        i = WebDriverWait(div, 1).until(
+                            EC.presence_of_element_located((By.TAG_NAME, "i"))
+                        )
+                        print(i.get_attribute("class"))
+                        if i.get_attribute("class") == "icon-point":
+                            region = WebDriverWait(div, 1).until(
+                                EC.presence_of_all_elements_located(
+                                    (By.CLASS_NAME, "info")
+                                )
+                            ),
+                            break
+                    # region = list(
+                    #     filter(
+                    #         lambda x: WebDriverWait(x, 0.5)
+                    #         .until(EC.presence_of_element_located((By.TAG_NAME, "i")))
+                    #         .get_attribute("class")
+                    #         == "icon-point",
+                    #         WebDriverWait(company_contacts, 1).until(
+                    #             EC.presence_of_all_elements_located(
+                    #                 (By.TAG_NAME, "div")
+                    #             )
+                    #         ),
+                    #     )
+                    # )[0]
+                    # print("asdf", region.text)
+                    finished = True
+            except TimeoutException:
+                pass
+
+            try:
+                if not finished:
+                    region = WebDriverWait(adspower_browser, 1).until(
+                        EC.presence_of_element_located(
+                            (By.CLASS_NAME, "realtor__info-place")
+                        )
+                    )
+                    finished = True
+            except TimeoutException:
+                pass
+
+            try:
+                if not finished:
+                    block_col = WebDriverWait(adspower_browser, 1).until(
+                        EC.presence_of_all_elements_located(
+                            (By.CLASS_NAME, "block-col")
+                        )
+                    )
+                    if len(block_col) < 2:
+                        raise TimeoutException()
+                    block_col = block_col[1]
+                    block_col_line = WebDriverWait(block_col, 1).until(
+                        EC.presence_of_all_elements_located(
+                            (By.CLASS_NAME, "block-col-line")
+                        )
+                    )
+                    if len(block_col_line) < 3:
+                        raise TimeoutException()
+                    block_col_line = block_col_line[2]
+                    region = WebDriverWait(block_col_line, 1).until(
+                        EC.presence_of_element_located((By.TAG_NAME, "a"))
+                    )
+                    finished = True
+            except TimeoutException:
+                pass
+
+            try:
+                if not finished:
+                    block_col = WebDriverWait(adspower_browser, 1).until(
+                        EC.presence_of_all_elements_located(
+                            (By.CLASS_NAME, "block-col")
+                        )
+                    )
+                    if len(block_col) < 2:
+                        raise TimeoutException()
+                    block_col = block_col[1]
+                    block_col_line = WebDriverWait(block_col, 1).until(
+                        EC.presence_of_element_located(
+                            (By.CLASS_NAME, "block-col-line")
+                        )
+                    )
+                    region = WebDriverWait(block_col_line, 1).until(
+                        EC.presence_of_element_located((By.TAG_NAME, "a"))
+                    )
+                    finished = True
+            except TimeoutException:
+                pass
+
+            print(region.text)
+
+            # Специализация
+            print(new_realtors_specializations[realtor_idx])
+
             time.sleep(DELAY)
 
         current_page_idx += 1
