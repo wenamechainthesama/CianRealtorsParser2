@@ -88,6 +88,7 @@ def parse_realtors_data(
         adspower_browser.get(
             URL.format(region_idxs[current_region_pos]) + f"&page={current_page_idx}"
         )
+        logger.info(f"Номер страницы: {current_page_idx}, idx региона: {current_region_pos}")
         time.sleep(1)
 
         # Парсинг ссылок на всех риелторов на странице
@@ -248,7 +249,7 @@ def parse_realtors_data(
                         EC.presence_of_element_located(
                             (By.CLASS_NAME, "realtor__info-place")
                         )
-                    )
+                    ).text
                     finished = True
             except:
                 pass
@@ -273,7 +274,7 @@ def parse_realtors_data(
                     block_col_line = block_col_line[2]
                     region = WebDriverWait(block_col_line, 1).until(
                         EC.presence_of_element_located((By.TAG_NAME, "a"))
-                    )
+                    ).text
                     finished = True
             except:
                 pass
@@ -295,7 +296,7 @@ def parse_realtors_data(
                     )
                     region = WebDriverWait(block_col_line, 1).until(
                         EC.presence_of_element_located((By.TAG_NAME, "a"))
-                    )
+                    ).text
                     finished = True
             except:
                 pass
@@ -311,20 +312,25 @@ def parse_realtors_data(
                 f"Специализации риелтора (link={link}) собраны: '{specializations}'"
             )
 
-            session.add(
-                RealtorData(
-                    link=link,
-                    name=name,
-                    phone_number=phone_number,
-                    region=region,
-                    specializations=specializations,
-                    date=date,
+            try:
+                session.add(
+                    RealtorData(
+                        link=link,
+                        name=name,
+                        phone_number=phone_number,
+                        region=region,
+                        specializations=specializations,
+                        date=date,
+                    )
                 )
-            )
-            session.commit()
-            logger.success(f"Риелтор (link={link}) под номером {len(session.query(RealtorData).all())} добавлен в БД")
-            realtor_idx += 1
-            time.sleep(random.randint(3, 4))
+                session.commit()
+                logger.success(f"Риелтор (link={link}) под номером {len(session.query(RealtorData).all())} добавлен в БД")
+            except Exception as error:
+                logger.error(f"Ошибка во время записи данных риелтора в бд: {error}")
+                realtor_idx += 1
+                continue
+
+            time.sleep(random.randint(3, 5))
 
         current_page_idx += 1
         time.sleep(1)
@@ -343,7 +349,7 @@ if __name__ == "__main__":
             ADSPOWER_ID1,
             region_idxs,
             0,
-            REGION_IDXS_AMOUNT // 2,
+            REGION_IDXS_AMOUNT // 2 + 15,
             adspower_driver,
         ],
     )
@@ -354,7 +360,7 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID2,
             region_idxs,
-            REGION_IDXS_AMOUNT // 2 + 1,
+            REGION_IDXS_AMOUNT // 2 + 15 + 1,
             REGION_IDXS_AMOUNT - 1,
             adspower_driver,
         ],
