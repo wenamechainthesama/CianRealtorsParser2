@@ -15,6 +15,7 @@ from sqlalchemy.orm import declarative_base
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.remote.webelement import WebElement
 
 from config import (
     DATABASE_URL,
@@ -42,6 +43,7 @@ class RealtorData(Base):
     phone_number = Column(String(20), unique=True)
     region = Column(String(200))
     specializations = Column(String(1000))
+    date = Column(Integer)
 
 
 Base.metadata.create_all(bind=engine)
@@ -98,22 +100,7 @@ def parse_realtors_data(
                 )
             )
 
-            try:
-                bad_realtors_specializations = [
-                    [
-                        j.text
-                        for j in i.find_elements(
-                            By.CLASS_NAME, "gallery-text-box-spec-list"
-                        )
-                    ]
-                    for i in WebDriverWait(adspower_browser, 5).until(
-                        EC.presence_of_all_elements_located((By.CLASS_NAME, "desc"))
-                    )
-                ]
-            except Exception as error:
-                logger.warning(
-                    f"Ошибка во время парсинга специализаций какого-то риелтора:\n{error}"
-                )
+            realtors_exceptions_counter = 0
 
         except Exception as error:
             realtors_exceptions_counter += 1
@@ -121,22 +108,39 @@ def parse_realtors_data(
                 f"Произошла ошибка во время сбора данных риелторов (current_region_pos={current_region_pos}, current_page_idx={current_page_idx}):\n{error}"
             )
             if realtors_exceptions_counter >= 2:
-                logger.warning(f"Все данные по региону (current_region_pos={current_region_pos}) собраны")
+                logger.success(f"Все данные по региону (current_region_pos={current_region_pos}) собраны")
                 current_region_pos += 1
+                realtors_exceptions_counter = 0
             continue
 
-        realtors_exceptions_counter = 0
+        try:
+            bad_realtors_specializations = [
+                [
+                    j.text
+                    for j in i.find_elements(
+                        By.CLASS_NAME, "gallery-text-box-spec-list"
+                    )
+                ]
+                for i in WebDriverWait(adspower_browser, 5).until(
+                    EC.presence_of_all_elements_located((By.CLASS_NAME, "desc"))
+                )
+            ]
+        except Exception as error:
+            logger.warning(
+                f"Ошибка во время парсинга специализаций какого-то риелтора:\n{error}"
+            )
+
         realtors_links = [link.get_attribute("href") for link in bad_realtors_links]
 
         # Фильтруем риелторов по дате регистрации
-        realtors_registration_data = WebDriverWait(adspower_browser, 5).until(
+        realtors_registration_date = WebDriverWait(adspower_browser, 5).until(
             EC.presence_of_all_elements_located((By.CLASS_NAME, "prop-el"))
         )
 
         updated = []
-        for data in realtors_registration_data:
-            if data.get_attribute("title").startswith("Дата регистрации"):
-                updated.append(data)
+        for date in realtors_registration_date:
+            if date.get_attribute("title").startswith("Дата регистрации"):
+                updated.append(date)
                 continue
 
         if len(realtors_links) == 0:
@@ -149,12 +153,13 @@ def parse_realtors_data(
                 break
 
         i = -1
-        new_realtors_links = []
+        new_realtors_links = {}
         new_realtors_specializations = []
-        for data_idx, data in enumerate(updated):
+        for date_idx, date in enumerate(updated):
             i += 1
-            if int(data.text[13:17]) >= 2017:
-                new_realtors_links.append(realtors_links[data_idx])
+            date_int = int(date.text[13:17])
+            if date_int >= 2017:
+                new_realtors_links.setdefault(realtors_links[date_idx], date_int)
                 new_realtors_specializations.append(
                     " || ".join(bad_realtors_specializations[i])
                 )
@@ -164,7 +169,8 @@ def parse_realtors_data(
         # 2) Телефон
         # 3) Специализация
         # 4) Регион
-        for realtor_idx, link in enumerate(new_realtors_links):
+        realtor_idx = 0
+        for link, date in new_realtors_links.items():
             adspower_browser.get(link)
 
             # Проверка на отсутствие данного риелтора в БД
@@ -196,6 +202,9 @@ def parse_realtors_data(
                 except:
                     logger.warning(f"Имя риелтора (link={link}) не найдено")
 
+            # Дата регистрации
+            logger.info(f"Дата регистрации риелтора: {date}")
+
             # Телефон
             source = adspower_browser.page_source
             phone_number = re.findall(
@@ -221,10 +230,17 @@ def parse_realtors_data(
                     if len(company_contacts) < 2:
                         raise TimeoutException()
                     company_contacts = company_contacts[1]
-                    region = WebDriverWait(company_contacts, 1).until(
-                        EC.presence_of_all_elements_located((By.CLASS_NAME, "info"))
-                    )[1]
-                    finished = True
+                    iss: list[WebElement] = WebDriverWait(company_contacts, 1).until(
+                        EC.presence_of_all_elements_located((By.TAG_NAME, "i"))
+                    )
+                    for i in iss:
+                        if i.get_attribute("class") == "icon-point":
+                            parent = WebDriverWait(i, 1).until(
+                                EC.presence_of_element_located((By.XPATH, "./.."))
+                            )
+                            region = parent.text
+                            finished = True
+                            break
             except:
                 pass
 
@@ -287,7 +303,7 @@ def parse_realtors_data(
                 pass
 
             if finished:
-                logger.info(f"Регион риелтора (link={link}) собран: {region.text}")
+                logger.info(f"Регион риелтора (link={link}) собран: {region}")
             else:
                 logger.warning(f"Регион риелтора (link={link}) не найден")
 
@@ -302,13 +318,15 @@ def parse_realtors_data(
                     link=link,
                     name=name,
                     phone_number=phone_number,
-                    region=region.text,
+                    region=region,
                     specializations=specializations,
+                    date=date,
                 )
             )
             session.commit()
             logger.success(f"Риелтор (link={link}) под номером {len(session.query(RealtorData).all())} добавлен в БД")
-            time.sleep(DELAY)
+            realtor_idx += 1
+            time.sleep(random.randint(3, 4))
 
         current_page_idx += 1
         time.sleep(1)
