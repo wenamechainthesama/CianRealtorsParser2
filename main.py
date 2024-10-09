@@ -352,7 +352,7 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID1,
             region_idxs,
-            4, # 0,
+            0,
             REGION_IDXS_AMOUNT // 2 + 15,
             adspower_driver,
         ],
@@ -364,7 +364,7 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID2,
             region_idxs,
-            72, # REGION_IDXS_AMOUNT // 2 + 15 + 1,
+            REGION_IDXS_AMOUNT // 2 + 15 + 1,
             REGION_IDXS_AMOUNT - 1,
             adspower_driver,
         ],
