@@ -85,6 +85,6 @@ REGION_IDXS = [
     2157,
     172691,
 ]
-URL = "https://afy.ru/moskva/user/?type_trade=&folder=&mp_id={}&mp_id_way=&mp_id_street=&mp_id_bor=&mp_id_bor_sup=&mp_id_metro=&q=&sort%5Bby%5D=rating&limit=50"
+URL = "https://afy.ru/moskva/user/?type_trade=&folder=&mp_id={}&mp_id_way=&mp_id_street=&mp_id_bor=&mp_id_bor_sup=&mp_id_metro=&q=&sort%5Bby%5D=reg_desc&limit=50"
 BATCH_SIZE = 50
 REGION_IDXS_AMOUNT = len(REGION_IDXS)

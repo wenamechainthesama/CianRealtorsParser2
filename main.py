@@ -142,7 +142,8 @@ def parse_realtors_data(
                 updated.append(date)
                 continue
 
-        if len(realtors_links) == 0:
+        if len(realtors_links) == 0 or current_page_idx > 100:
+            current_page_idx = 1
             current_region_pos += 1
             logger.success(
                 f"Риелторы по региону (current_region_pos={current_region_pos}) собраны"
@@ -170,6 +171,9 @@ def parse_realtors_data(
         # 4) Регион
         realtor_idx = 0
         for link, date in new_realtors_links.items():
+            name = None
+            phone_number = None
+            region = None
             adspower_browser.get(link)
 
             # Проверка на отсутствие данного риелтора в БД
@@ -348,7 +352,7 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID1,
             region_idxs,
-            0,
+            4, # 0,
             REGION_IDXS_AMOUNT // 2 + 15,
             adspower_driver,
         ],
@@ -360,7 +364,7 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID2,
             region_idxs,
-            REGION_IDXS_AMOUNT // 2 + 15 + 1,
+            72, # REGION_IDXS_AMOUNT // 2 + 15 + 1,
             REGION_IDXS_AMOUNT - 1,
             adspower_driver,
         ],
