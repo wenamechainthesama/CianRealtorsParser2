@@ -3,10 +3,8 @@ import time
 import random
 import multiprocessing
 
-import requests
 from loguru import logger
 from sqlalchemy import create_engine
-from fake_useragent import UserAgent
 from sqlalchemy.orm import sessionmaker
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
