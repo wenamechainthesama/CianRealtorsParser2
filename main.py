@@ -79,14 +79,15 @@ def parse_realtors_data(
     start_region_pos: int,
     end_region_pos: int,
     adspower_driver: AdspowerDriver,
+    start_page=1,
 ):
     adspower_browser = adspower_driver.get_browser(adspower_id=adspower_id)
     current_region_pos = start_region_pos
     # realtors_exceptions_counter = 0
-    current_page_idx = 1
+    current_page = start_page
     while True:
-        if current_page_idx > 100:
-            current_page_idx = 1
+        if current_page > 100:
+            current_page = 1
             current_region_pos += 1
             logger.success(
                 f"Риелторы по региону (current_region_pos={current_region_pos}) собраны"
@@ -99,18 +100,17 @@ def parse_realtors_data(
 
         try:
             adspower_browser.get(
-                URL.format(region_idxs[current_region_pos])
-                + f"&page={current_page_idx}"
+                URL.format(region_idxs[current_region_pos]) + f"&page={current_page}"
             )
         except Exception as error:
             logger.error(
-                f"Возникла ошибка при загрузке страницы (current_page_idx={current_page_idx})"
+                f"Возникла ошибка при загрузке страницы (current_page={current_page})"
             )
             time.sleep(10 * 60)
             continue
 
         logger.info(
-            f"Номер страницы: {current_page_idx}, idx региона: {current_region_pos}"
+            f"Номер страницы: {current_page}, idx региона: {current_region_pos}"
         )
         time.sleep(1)
 
@@ -127,14 +127,14 @@ def parse_realtors_data(
         except Exception as error:
             # realtors_exceptions_counter += 1
             # logger.warning(
-            #     f"Произошла ошибка во время сбора данных риелторов (current_region_pos={current_region_pos}, current_page_idx={current_page_idx}):\n{error}"
+            #     f"Произошла ошибка во время сбора данных риелторов (current_region_pos={current_region_pos}, current_page={current_page}):\n{error}"
             # )
             # if realtors_exceptions_counter >= 2:
             logger.success(
                 f"Все данные по региону (current_region_pos={current_region_pos}) собраны"
             )
             current_region_pos += 1
-            current_page_idx = 1
+            current_page = 1
             # realtors_exceptions_counter = 0
             continue
 
@@ -168,8 +168,8 @@ def parse_realtors_data(
                 updated.append(date)
                 continue
 
-        # if len(realtors_links) == 0 or current_page_idx > 100:
-        #     current_page_idx = 1
+        # if len(realtors_links) == 0 or current_page > 100:
+        #     current_page = 1
         #     current_region_pos += 1
         #     logger.success(
         #         f"Риелторы по региону (current_region_pos={current_region_pos}) собраны"
@@ -381,7 +381,7 @@ def parse_realtors_data(
 
             time.sleep(random.randint(3, 5))
 
-        current_page_idx += 1
+        current_page += 1
         time.sleep(1)
 
 
@@ -397,10 +397,10 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID1,
             region_idxs,
-            9, # 0,
+            9,  # 0,
             REGION_IDXS_AMOUNT // 2 + 15,
             adspower_driver,
-            16
+            16,
         ],
     )
     task1.start()
@@ -410,10 +410,10 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID2,
             region_idxs,
-            73, # REGION_IDXS_AMOUNT // 2 + 15 + 1,
+            73,  # REGION_IDXS_AMOUNT // 2 + 15 + 1,
             REGION_IDXS_AMOUNT - 1,
             adspower_driver,
-            61
+            61,
         ],
     )
     task2.start()
