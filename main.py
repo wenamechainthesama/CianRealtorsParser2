@@ -82,13 +82,36 @@ def parse_realtors_data(
 ):
     adspower_browser = adspower_driver.get_browser(adspower_id=adspower_id)
     current_region_pos = start_region_pos
-    realtors_exceptions_counter = 0
+    # realtors_exceptions_counter = 0
     current_page_idx = 1
     while True:
-        adspower_browser.get(
-            URL.format(region_idxs[current_region_pos]) + f"&page={current_page_idx}"
+        if current_page_idx > 100:
+            current_page_idx = 1
+            current_region_pos += 1
+            logger.success(
+                f"Риелторы по региону (current_region_pos={current_region_pos}) собраны"
+            )
+            continue
+
+        if current_region_pos == end_region_pos:
+            logger.success("Все доступные риелторы собраны")
+            break
+
+        try:
+            adspower_browser.get(
+                URL.format(region_idxs[current_region_pos])
+                + f"&page={current_page_idx}"
+            )
+        except Exception as error:
+            logger.error(
+                f"Возникла ошибка при загрузке страницы (current_page_idx={current_page_idx})"
+            )
+            time.sleep(10 * 60)
+            continue
+
+        logger.info(
+            f"Номер страницы: {current_page_idx}, idx региона: {current_region_pos}"
         )
-        logger.info(f"Номер страницы: {current_page_idx}, idx региона: {current_region_pos}")
         time.sleep(1)
 
         # Парсинг ссылок на всех риелторов на странице
@@ -99,17 +122,20 @@ def parse_realtors_data(
                 )
             )
 
-            realtors_exceptions_counter = 0
+            # realtors_exceptions_counter = 0
 
         except Exception as error:
-            realtors_exceptions_counter += 1
-            logger.warning(
-                f"Произошла ошибка во время сбора данных риелторов (current_region_pos={current_region_pos}, current_page_idx={current_page_idx}):\n{error}"
+            # realtors_exceptions_counter += 1
+            # logger.warning(
+            #     f"Произошла ошибка во время сбора данных риелторов (current_region_pos={current_region_pos}, current_page_idx={current_page_idx}):\n{error}"
+            # )
+            # if realtors_exceptions_counter >= 2:
+            logger.success(
+                f"Все данные по региону (current_region_pos={current_region_pos}) собраны"
             )
-            if realtors_exceptions_counter >= 2:
-                logger.success(f"Все данные по региону (current_region_pos={current_region_pos}) собраны")
-                current_region_pos += 1
-                realtors_exceptions_counter = 0
+            current_region_pos += 1
+            current_page_idx = 1
+            # realtors_exceptions_counter = 0
             continue
 
         try:
@@ -142,15 +168,15 @@ def parse_realtors_data(
                 updated.append(date)
                 continue
 
-        if len(realtors_links) == 0 or current_page_idx > 100:
-            current_page_idx = 1
-            current_region_pos += 1
-            logger.success(
-                f"Риелторы по региону (current_region_pos={current_region_pos}) собраны"
-            )
-            if current_region_pos == end_region_pos:
-                logger.success("Все доступные риелторы собраны")
-                break
+        # if len(realtors_links) == 0 or current_page_idx > 100:
+        #     current_page_idx = 1
+        #     current_region_pos += 1
+        #     logger.success(
+        #         f"Риелторы по региону (current_region_pos={current_region_pos}) собраны"
+        #     )
+        #     if current_region_pos == end_region_pos:
+        #         logger.success("Все доступные риелторы собраны")
+        #         break
 
         i = -1
         new_realtors_links = {}
@@ -174,7 +200,14 @@ def parse_realtors_data(
             name = None
             phone_number = None
             region = None
-            adspower_browser.get(link)
+            try:
+                adspower_browser.get(link)
+            except Exception as error:
+                logger.error(
+                    f"Возникла ошибка с загрузкой страницы риелтора (link={link})"
+                )
+                time.sleep(5 * 60)
+                continue
 
             # Проверка на отсутствие данного риелтора в БД
             id_already_in_db = session.query(
@@ -183,6 +216,7 @@ def parse_realtors_data(
 
             if id_already_in_db:
                 logger.warning(f"Этот риелтор (link={link}) уже есть в БД")
+                time.sleep(random.randint(2, 4))
                 continue
 
             # Сбор данных со странички
@@ -249,11 +283,15 @@ def parse_realtors_data(
 
             try:
                 if not finished:
-                    region = WebDriverWait(adspower_browser, 1).until(
-                        EC.presence_of_element_located(
-                            (By.CLASS_NAME, "realtor__info-place")
+                    region = (
+                        WebDriverWait(adspower_browser, 1)
+                        .until(
+                            EC.presence_of_element_located(
+                                (By.CLASS_NAME, "realtor__info-place")
+                            )
                         )
-                    ).text
+                        .text
+                    )
                     finished = True
             except:
                 pass
@@ -276,9 +314,11 @@ def parse_realtors_data(
                     if len(block_col_line) < 3:
                         raise TimeoutException()
                     block_col_line = block_col_line[2]
-                    region = WebDriverWait(block_col_line, 1).until(
-                        EC.presence_of_element_located((By.TAG_NAME, "a"))
-                    ).text
+                    region = (
+                        WebDriverWait(block_col_line, 1)
+                        .until(EC.presence_of_element_located((By.TAG_NAME, "a")))
+                        .text
+                    )
                     finished = True
             except:
                 pass
@@ -298,9 +338,11 @@ def parse_realtors_data(
                             (By.CLASS_NAME, "block-col-line")
                         )
                     )
-                    region = WebDriverWait(block_col_line, 1).until(
-                        EC.presence_of_element_located((By.TAG_NAME, "a"))
-                    ).text
+                    region = (
+                        WebDriverWait(block_col_line, 1)
+                        .until(EC.presence_of_element_located((By.TAG_NAME, "a")))
+                        .text
+                    )
                     finished = True
             except:
                 pass
@@ -328,9 +370,12 @@ def parse_realtors_data(
                     )
                 )
                 session.commit()
-                logger.success(f"Риелтор (link={link}) под номером {len(session.query(RealtorData).all())} добавлен в БД")
+                logger.success(
+                    f"Риелтор (link={link}) под номером {len(session.query(RealtorData).all())} добавлен в БД"
+                )
             except Exception as error:
                 logger.error(f"Ошибка во время записи данных риелтора в бд: {error}")
+                session.rollback()
                 realtor_idx += 1
                 continue
 
@@ -352,9 +397,10 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID1,
             region_idxs,
-            0,
+            9, # 0,
             REGION_IDXS_AMOUNT // 2 + 15,
             adspower_driver,
+            16
         ],
     )
     task1.start()
@@ -364,9 +410,10 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID2,
             region_idxs,
-            REGION_IDXS_AMOUNT // 2 + 15 + 1,
+            73, # REGION_IDXS_AMOUNT // 2 + 15 + 1,
             REGION_IDXS_AMOUNT - 1,
             adspower_driver,
+            61
         ],
     )
     task2.start()
