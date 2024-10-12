@@ -109,10 +109,10 @@ def parse_realtors_data(
             time.sleep(10 * 60)
             continue
 
-        logger.info(
-            f"Номер страницы: {current_page}, idx региона: {current_region_pos}"
-        )
-        time.sleep(1)
+        # logger.info(
+        #     f"Номер страницы: {current_page}, idx региона: {current_region_pos}"
+        # )
+        # time.sleep(1)
 
         # Парсинг ссылок на всех риелторов на странице
         try:
@@ -179,6 +179,7 @@ def parse_realtors_data(
         #         break
 
         i = -1
+        last_parse = False
         new_realtors_links = {}
         new_realtors_specializations = []
         for date_idx, date in enumerate(updated):
@@ -189,6 +190,8 @@ def parse_realtors_data(
                 new_realtors_specializations.append(
                     " || ".join(bad_realtors_specializations[i])
                 )
+            else:
+                last_parse = True
 
         # Заходим по каждой ссылке и собираем данные по одному конкретному риелтору:
         # 1) Имя
@@ -197,6 +200,9 @@ def parse_realtors_data(
         # 4) Регион
         realtor_idx = 0
         for link, date in new_realtors_links.items():
+            logger.info(
+                f"Риелтор: {realtor_idx}, Страницы: {current_page}, Регион: {current_region_pos}"
+            )
             name = None
             phone_number = None
             region = None
@@ -377,9 +383,15 @@ def parse_realtors_data(
                 logger.error(f"Ошибка во время записи данных риелтора в бд: {error}")
                 session.rollback()
                 realtor_idx += 1
+                time.sleep(random.randint(3, 5))
                 continue
 
             time.sleep(random.randint(3, 5))
+
+        if last_parse:
+            current_region_pos += 1
+            time.sleep(random.randint(2, 4))
+            continue
 
         current_page += 1
         time.sleep(1)
@@ -397,10 +409,10 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID1,
             region_idxs,
-            9,  # 0,
-            REGION_IDXS_AMOUNT // 2 + 15,
+            26,  # 0,
+            7, # REGION_IDXS_AMOUNT // 2 + 15,
             adspower_driver,
-            16,
+            1,
         ],
     )
     task1.start()
@@ -410,8 +422,8 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID2,
             region_idxs,
-            73,  # REGION_IDXS_AMOUNT // 2 + 15 + 1,
-            REGION_IDXS_AMOUNT - 1,
+            40,  # REGION_IDXS_AMOUNT // 2 + 15 + 1,
+            58, # REGION_IDXS_AMOUNT - 1,
             adspower_driver,
             61,
         ],
