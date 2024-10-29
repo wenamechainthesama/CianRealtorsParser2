@@ -1,0 +1,5 @@
+venv/
+__pycache__/
+.env
+realtors_parser.log
+realtors_data.db
