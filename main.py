@@ -198,10 +198,11 @@ def parse_realtors_data(
         # 2) Телефон
         # 3) Специализация
         # 4) Регион
-        realtor_idx = 0
+        realtor_idx = -1
         for link, date in new_realtors_links.items():
+            realtor_idx += 1
             logger.info(
-                f"Риелтор: {realtor_idx}, Страницы: {current_page}, Регион: {current_region_pos}"
+                f"Риелтор (idx): {realtor_idx}, Страница (idx): {current_page}, Регион (idx): {current_region_pos}"
             )
             name = None
             phone_number = None
@@ -390,6 +391,9 @@ def parse_realtors_data(
 
         if last_parse:
             current_region_pos += 1
+            current_page = 1
+            logger.success("Все риелторы по данному региону с датой регистрации 2017 года или позже собраны")
+            last_parse = False
             time.sleep(random.randint(2, 4))
             continue
 
@@ -409,8 +413,8 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID1,
             region_idxs,
-            26,  # 0,
-            7, # REGION_IDXS_AMOUNT // 2 + 15,
+            27,  # 0,
+            37, # REGION_IDXS_AMOUNT // 2 + 15,
             adspower_driver,
             1,
         ],
@@ -422,10 +426,10 @@ if __name__ == "__main__":
         args=[
             ADSPOWER_ID2,
             region_idxs,
-            40,  # REGION_IDXS_AMOUNT // 2 + 15 + 1,
+            38,  # REGION_IDXS_AMOUNT // 2 + 15 + 1,
             58, # REGION_IDXS_AMOUNT - 1,
             adspower_driver,
-            61,
+            1,
         ],
     )
     task2.start()
